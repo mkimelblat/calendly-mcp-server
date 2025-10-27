@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 """
-Calendly MCP Server
+Calendly MCP Server - COMPLETE API Coverage (v2.1)
 
-A complete Model Context Protocol server for the Calendly API.
-Provides full CRUD operations for all Calendly resources.
+The most comprehensive Model Context Protocol server for Calendly API v2.
+Includes ALL endpoints including Event Type Management APIs.
 """
 
 import os
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 import httpx
-from mcp.server import Server
+import asyncio
+import json
+from mcp.server.models import InitializationOptions
+from mcp.server import NotificationOptions, Server
+from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Configure logging
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("calendly-mcp")
 
-# Calendly API configuration
 CALENDLY_API_KEY = os.getenv("CALENDLY_API_KEY")
 CALENDLY_BASE_URL = "https://api.calendly.com"
 
@@ -48,7 +49,7 @@ class CalendlyClient:
         method: str, 
         endpoint: str, 
         params: Optional[Dict] = None,
-        json: Optional[Dict] = None
+        json_data: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """Make an HTTP request to the Calendly API"""
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
@@ -60,12 +61,11 @@ class CalendlyClient:
                     url=url,
                     headers=self.headers,
                     params=params,
-                    json=json,
+                    json=json_data,
                     timeout=30.0
                 )
                 response.raise_for_status()
                 
-                # Some endpoints return empty responses (204 No Content)
                 if response.status_code == 204:
                     return {"success": True, "message": "Operation completed successfully"}
                 
@@ -83,528 +83,729 @@ class CalendlyClient:
                 return {"error": True, "message": str(e)}
 
 
-# Initialize the MCP server
-app = Server("calendly-mcp")
+server = Server("calendly-mcp")
 calendly = CalendlyClient(CALENDLY_API_KEY)
 
 
-# ============================================================================
-# EVENT TYPES
-# ============================================================================
+@server.list_tools()
+async def handle_list_tools() -> list[Tool]:
+    """List all available tools - COMPLETE Calendly API v2 coverage including Event Type Management"""
+    return [
+        # USER ENDPOINTS
+        Tool(
+            name="get_current_user",
+            description="Get information about the currently authenticated user",
+            inputSchema={"type": "object", "properties": {}, "required": []}
+        ),
+        Tool(
+            name="get_user",
+            description="Get information about a specific user by UUID",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "User UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        
+        # EVENT TYPE MANAGEMENT ENDPOINTS (NEW!)
+        Tool(
+            name="create_event_type",
+            description="🆕 Create a new one-on-one event type with custom settings",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Event type name (e.g., '45 Minute Meeting')"},
+                    "owner": {"type": "string", "description": "Owner user URI"},
+                    "duration": {"type": "integer", "description": "Duration in minutes"},
+                    "description": {"type": "string", "description": "Event description"},
+                    "color": {"type": "string", "description": "Color hex code (e.g., #8247f5)"},
+                    "location_kind": {"type": "string", "description": "zoom_conference, google_conference, microsoft_teams_conference, physical, etc."},
+                    "location_details": {"type": "string", "description": "Additional location info"},
+                    "visibility": {"type": "string", "description": "public or private"},
+                    "locale": {"type": "string", "description": "Locale (e.g., en, es, fr)"}
+                },
+                "required": ["name", "owner", "duration"]
+            }
+        ),
+        Tool(
+            name="update_event_type",
+            description="🆕 Update an existing event type (duration, name, location, etc.)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "uuid": {"type": "string", "description": "Event type UUID"},
+                    "name": {"type": "string", "description": "New name"},
+                    "duration": {"type": "integer", "description": "New duration in minutes"},
+                    "description": {"type": "string", "description": "New description"},
+                    "color": {"type": "string", "description": "New color hex code"},
+                    "location_kind": {"type": "string", "description": "New location type"},
+                    "location_details": {"type": "string", "description": "Location details"},
+                    "visibility": {"type": "string", "description": "public or private"},
+                    "active": {"type": "boolean", "description": "Active status"}
+                },
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_event_types",
+            description="List event types for a user or organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user": {"type": "string", "description": "User URI"},
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "active": {"type": "boolean", "description": "Filter by active status"},
+                    "count": {"type": "integer", "description": "Number of results (max 100)"},
+                    "sort": {"type": "string", "description": "Sort order (name:asc, name:desc)"}
+                }
+            }
+        ),
+        Tool(
+            name="get_event_type",
+            description="Get details of a specific event type",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Event type UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_event_type_available_times",
+            description="Get available time slots for an event type",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_type": {"type": "string", "description": "Event type URI"},
+                    "start_time": {"type": "string", "description": "Start of range (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End of range (ISO 8601)"}
+                },
+                "required": ["event_type", "start_time", "end_time"]
+            }
+        ),
+        
+        # EVENT TYPE AVAILABILITY SCHEDULES (NEW!)
+        Tool(
+            name="list_event_type_availability_schedules",
+            description="🆕 List availability schedules for an event type",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_type": {"type": "string", "description": "Event type UUID"}
+                },
+                "required": ["event_type"]
+            }
+        ),
+        Tool(
+            name="update_event_type_availability_schedule",
+            description="🆕 Update availability schedule for an event type",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_type": {"type": "string", "description": "Event type UUID"},
+                    "availability_rules": {"type": "string", "description": "JSON string of availability rules"},
+                    "user": {"type": "string", "description": "User URI"},
+                    "availability_setting": {"type": "string", "description": "host or custom"}
+                },
+                "required": ["event_type"]
+            }
+        ),
+        
+        # MEETING LOCATIONS (NEW!)
+        Tool(
+            name="list_user_meeting_locations",
+            description="🆕 List available meeting locations for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user": {"type": "string", "description": "User URI"}
+                },
+                "required": ["user"]
+            }
+        ),
+        
+        # SCHEDULED EVENTS ENDPOINTS
+        Tool(
+            name="list_events",
+            description="List scheduled events with various filters",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user": {"type": "string", "description": "User URI"},
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "invitee_email": {"type": "string", "description": "Filter by invitee email"},
+                    "status": {"type": "string", "description": "Status: active or canceled"},
+                    "min_start_time": {"type": "string", "description": "Min start time (ISO 8601)"},
+                    "max_start_time": {"type": "string", "description": "Max start time (ISO 8601)"},
+                    "count": {"type": "integer", "description": "Number of results (max 100)"}
+                }
+            }
+        ),
+        Tool(
+            name="get_event",
+            description="Get details of a specific scheduled event",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Event UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="cancel_event",
+            description="Cancel a scheduled event",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "uuid": {"type": "string", "description": "Event UUID"},
+                    "reason": {"type": "string", "description": "Cancellation reason"}
+                },
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="create_event_invitee",
+            description="🆕 SCHEDULING API: Create a scheduled event (book a meeting) programmatically",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_type_uuid": {"type": "string", "description": "Event type UUID"},
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "email": {"type": "string", "description": "Invitee email"},
+                    "name": {"type": "string", "description": "Invitee full name"},
+                    "first_name": {"type": "string", "description": "Invitee first name"},
+                    "last_name": {"type": "string", "description": "Invitee last name"},
+                    "timezone": {"type": "string", "description": "Timezone (e.g., America/New_York)"},
+                    "guests": {"type": "array", "description": "Array of guest email addresses"},
+                    "questions_and_answers": {"type": "string", "description": "JSON string of Q&A pairs"}
+                },
+                "required": ["event_type_uuid", "start_time", "email", "name"]
+            }
+        ),
+        
+        # EVENT INVITEES ENDPOINTS
+        Tool(
+            name="list_event_invitees",
+            description="List invitees for a scheduled event",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_uuid": {"type": "string", "description": "Event UUID"},
+                    "email": {"type": "string", "description": "Filter by invitee email"},
+                    "status": {"type": "string", "description": "Status: active or canceled"},
+                    "count": {"type": "integer", "description": "Number of results"}
+                },
+                "required": ["event_uuid"]
+            }
+        ),
+        Tool(
+            name="get_event_invitee",
+            description="Get details of a specific event invitee",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_uuid": {"type": "string", "description": "Event UUID"},
+                    "invitee_uuid": {"type": "string", "description": "Invitee UUID"}
+                },
+                "required": ["event_uuid", "invitee_uuid"]
+            }
+        ),
+        
+        # AVAILABILITY SCHEDULES
+        Tool(
+            name="list_user_availability_schedules",
+            description="List availability schedules for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {"user": {"type": "string", "description": "User URI"}},
+                "required": ["user"]
+            }
+        ),
+        Tool(
+            name="get_user_availability_schedule",
+            description="Get details of an availability schedule",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Schedule UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_user_busy_times",
+            description="Get busy times for a user within a date range",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user": {"type": "string", "description": "User URI"},
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End time (ISO 8601)"}
+                },
+                "required": ["user", "start_time", "end_time"]
+            }
+        ),
+        
+        # ORGANIZATION ENDPOINTS
+        Tool(
+            name="get_organization",
+            description="Get organization details by UUID",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Organization UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_organization_memberships",
+            description="List members of an organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "email": {"type": "string", "description": "Filter by email"},
+                    "count": {"type": "integer", "description": "Number of results"}
+                },
+                "required": ["organization"]
+            }
+        ),
+        Tool(
+            name="get_organization_membership",
+            description="Get details of an organization membership",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Membership UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="delete_organization_membership",
+            description="Remove a user from an organization",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Membership UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_organization_invitations",
+            description="List pending organization invitations",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "email": {"type": "string", "description": "Filter by email"},
+                    "status": {"type": "string", "description": "Status: pending or declined"},
+                    "count": {"type": "integer", "description": "Number of results"}
+                },
+                "required": ["organization"]
+            }
+        ),
+        Tool(
+            name="get_organization_invitation",
+            description="Get details of an organization invitation",
+            inputSchema={
+                "type": "object",
+                "properties": {"org_uuid": {"type": "string"}, "invitation_uuid": {"type": "string"}},
+                "required": ["org_uuid", "invitation_uuid"]
+            }
+        ),
+        Tool(
+            name="create_organization_invitation",
+            description="Invite a user to an organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "email": {"type": "string", "description": "Email address to invite"}
+                },
+                "required": ["organization", "email"]
+            }
+        ),
+        Tool(
+            name="revoke_organization_invitation",
+            description="Revoke a pending organization invitation",
+            inputSchema={
+                "type": "object",
+                "properties": {"org_uuid": {"type": "string"}, "invitation_uuid": {"type": "string"}},
+                "required": ["org_uuid", "invitation_uuid"]
+            }
+        ),
+        
+        # WEBHOOK ENDPOINTS
+        Tool(
+            name="list_webhook_subscriptions",
+            description="List webhook subscriptions for an organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "scope": {"type": "string", "description": "Scope: organization or user"}
+                },
+                "required": ["organization"]
+            }
+        ),
+        Tool(
+            name="create_webhook_subscription",
+            description="Create a new webhook subscription",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "Webhook URL"},
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "events": {"type": "array", "description": "Array of event types"},
+                    "scope": {"type": "string", "description": "Scope: organization or user"},
+                    "signing_key": {"type": "string", "description": "Optional signing key"}
+                },
+                "required": ["url", "organization", "events"]
+            }
+        ),
+        Tool(
+            name="get_webhook_subscription",
+            description="Get details of a webhook subscription",
+            inputSchema={
+                "type": "object",
+                "properties": {"webhook_uuid": {"type": "string", "description": "Webhook UUID"}},
+                "required": ["webhook_uuid"]
+            }
+        ),
+        Tool(
+            name="delete_webhook_subscription",
+            description="Delete a webhook subscription",
+            inputSchema={
+                "type": "object",
+                "properties": {"webhook_uuid": {"type": "string", "description": "Webhook UUID"}},
+                "required": ["webhook_uuid"]
+            }
+        ),
+        
+        # ROUTING FORMS
+        Tool(
+            name="list_routing_forms",
+            description="List routing forms for an organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "organization": {"type": "string", "description": "Organization URI"},
+                    "count": {"type": "integer", "description": "Number of results"}
+                },
+                "required": ["organization"]
+            }
+        ),
+        Tool(
+            name="get_routing_form",
+            description="Get details of a routing form",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Routing form UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="list_routing_form_submissions",
+            description="List submissions for a routing form",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "form_uuid": {"type": "string", "description": "Routing form UUID"},
+                    "count": {"type": "integer", "description": "Number of results"}
+                },
+                "required": ["form_uuid"]
+            }
+        ),
+        Tool(
+            name="get_routing_form_submission",
+            description="Get details of a routing form submission",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "Submission UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        
+        # SCHEDULING LINKS
+        Tool(
+            name="create_scheduling_link",
+            description="Create a single-use scheduling link",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_event_count": {"type": "integer", "description": "Max bookings (default: 1)"},
+                    "owner": {"type": "string", "description": "Event type owner URI"},
+                    "owner_type": {"type": "string", "description": "EventType or User"}
+                },
+                "required": ["max_event_count", "owner", "owner_type"]
+            }
+        ),
+        
+        # INVITEE NO-SHOWS
+        Tool(
+            name="create_invitee_no_show",
+            description="Mark an invitee as a no-show",
+            inputSchema={
+                "type": "object",
+                "properties": {"invitee": {"type": "string", "description": "Invitee URI"}},
+                "required": ["invitee"]
+            }
+        ),
+        Tool(
+            name="get_invitee_no_show",
+            description="Get no-show details",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "No-show UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        Tool(
+            name="delete_invitee_no_show",
+            description="Unmark an invitee as a no-show",
+            inputSchema={
+                "type": "object",
+                "properties": {"uuid": {"type": "string", "description": "No-show UUID"}},
+                "required": ["uuid"]
+            }
+        ),
+        
+        # DATA COMPLIANCE (GDPR)
+        Tool(
+            name="delete_invitee_data",
+            description="Delete all data for invitee emails (GDPR compliance)",
+            inputSchema={
+                "type": "object",
+                "properties": {"emails": {"type": "array", "description": "Array of email addresses"}},
+                "required": ["emails"]
+            }
+        ),
+    ]
 
-@app.tool()
-async def get_event_type(uuid: str) -> str:
-    """
-    Get details of a specific event type.
+
+@server.call_tool()
+async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
+    """Handle tool execution - COMPLETE API coverage including Event Type Management"""
     
-    Args:
-        uuid: The UUID of the event type
-    """
-    result = await calendly.request("GET", f"/event_types/{uuid}")
-    return str(result)
+    try:
+        result = None
+        
+        # USER ENDPOINTS
+        if name == "get_current_user":
+            result = await calendly.request("GET", "/users/me")
+        elif name == "get_user":
+            result = await calendly.request("GET", f"/users/{arguments['uuid']}")
+            
+        # EVENT TYPE MANAGEMENT (NEW!)
+        elif name == "create_event_type":
+            payload = {
+                "name": arguments["name"],
+                "owner": arguments["owner"],
+                "duration": arguments["duration"]
+            }
+            optional = ["description", "color", "visibility", "locale"]
+            for key in optional:
+                if key in arguments:
+                    payload[key] = arguments[key]
+            
+            # Handle location
+            if "location_kind" in arguments:
+                location = {"kind": arguments["location_kind"]}
+                if "location_details" in arguments:
+                    if arguments["location_kind"] == "physical":
+                        location["location"] = arguments["location_details"]
+                    else:
+                        location["additional_info"] = arguments["location_details"]
+                payload["locations"] = [location]
+            
+            result = await calendly.request("POST", "/event_types", json_data=payload)
+            
+        elif name == "update_event_type":
+            uuid = arguments.pop("uuid")
+            payload = {}
+            
+            for key in ["name", "duration", "description", "color", "visibility", "active"]:
+                if key in arguments:
+                    payload[key] = arguments[key]
+            
+            # Handle location
+            if "location_kind" in arguments:
+                location = {"kind": arguments["location_kind"]}
+                if "location_details" in arguments:
+                    if arguments["location_kind"] == "physical":
+                        location["location"] = arguments["location_details"]
+                    else:
+                        location["additional_info"] = arguments["location_details"]
+                payload["locations"] = [location]
+            
+            result = await calendly.request("PATCH", f"/event_types/{uuid}", json_data=payload)
+            
+        # EVENT TYPE AVAILABILITY SCHEDULES (NEW!)
+        elif name == "list_event_type_availability_schedules":
+            result = await calendly.request("GET", "/event_type_availability_schedules", 
+                                           params={"event_type": arguments["event_type"]})
+        elif name == "update_event_type_availability_schedule":
+            event_type = arguments.pop("event_type")
+            payload = {}
+            if "availability_rules" in arguments:
+                payload["availability_rule"] = json.loads(arguments["availability_rules"])
+            if "user" in arguments:
+                payload["user"] = arguments["user"]
+            if "availability_setting" in arguments:
+                payload["availability_setting"] = arguments["availability_setting"]
+            result = await calendly.request("PATCH", f"/event_type_availability_schedules/{event_type}", 
+                                           json_data=payload)
+        
+        # MEETING LOCATIONS (NEW!)
+        elif name == "list_user_meeting_locations":
+            result = await calendly.request("GET", "/location", params={"user": arguments["user"]})
+            
+        # EVENT TYPE ENDPOINTS
+        elif name == "list_event_types":
+            params = {}
+            for key in ["user", "organization", "active", "count", "sort"]:
+                if key in arguments:
+                    params[key] = str(arguments[key]).lower() if key == "active" else arguments[key]
+            result = await calendly.request("GET", "/event_types", params=params)
+        elif name == "get_event_type":
+            result = await calendly.request("GET", f"/event_types/{arguments['uuid']}")
+        elif name == "list_event_type_available_times":
+            params = {
+                "event_type": arguments["event_type"],
+                "start_time": arguments["start_time"],
+                "end_time": arguments["end_time"]
+            }
+            result = await calendly.request("GET", "/event_type_available_times", params=params)
+            
+        # SCHEDULED EVENTS
+        elif name == "list_events":
+            params = {}
+            for key in ["user", "organization", "invitee_email", "status", "min_start_time", "max_start_time", "count"]:
+                if key in arguments:
+                    params[key] = arguments[key]
+            result = await calendly.request("GET", "/scheduled_events", params=params)
+        elif name == "get_event":
+            result = await calendly.request("GET", f"/scheduled_events/{arguments['uuid']}")
+        elif name == "cancel_event":
+            payload = {}
+            if "reason" in arguments:
+                payload["reason"] = arguments["reason"]
+            result = await calendly.request("POST", f"/scheduled_events/{arguments['uuid']}/cancellation", json_data=payload)
+        elif name == "create_event_invitee":
+            # SCHEDULING API
+            payload = {
+                "event_type_uuid": arguments["event_type_uuid"],
+                "start_time": arguments["start_time"],
+                "email": arguments["email"],
+                "name": arguments["name"]
+            }
+            optional = ["first_name", "last_name", "timezone", "guests"]
+            for key in optional:
+                if key in arguments:
+                    payload[key] = arguments[key]
+            if "questions_and_answers" in arguments:
+                payload["questions_and_answers"] = json.loads(arguments["questions_and_answers"])
+            result = await calendly.request("POST", "/scheduled_events", json_data=payload)
+            
+        # EVENT INVITEES
+        elif name == "list_event_invitees":
+            event_uuid = arguments.pop("event_uuid")
+            result = await calendly.request("GET", f"/scheduled_events/{event_uuid}/invitees", params=arguments)
+        elif name == "get_event_invitee":
+            result = await calendly.request("GET", f"/scheduled_events/{arguments['event_uuid']}/invitees/{arguments['invitee_uuid']}")
+            
+        # AVAILABILITY
+        elif name == "list_user_availability_schedules":
+            result = await calendly.request("GET", "/user_availability_schedules", params={"user": arguments["user"]})
+        elif name == "get_user_availability_schedule":
+            result = await calendly.request("GET", f"/user_availability_schedules/{arguments['uuid']}")
+        elif name == "list_user_busy_times":
+            params = {
+                "user": arguments["user"],
+                "start_time": arguments["start_time"],
+                "end_time": arguments["end_time"]
+            }
+            result = await calendly.request("GET", "/user_busy_times", params=params)
+            
+        # ORGANIZATION
+        elif name == "get_organization":
+            result = await calendly.request("GET", f"/organizations/{arguments['uuid']}")
+        elif name == "list_organization_memberships":
+            org = arguments.pop("organization")
+            result = await calendly.request("GET", "/organization_memberships", params={"organization": org, **arguments})
+        elif name == "get_organization_membership":
+            result = await calendly.request("GET", f"/organization_memberships/{arguments['uuid']}")
+        elif name == "delete_organization_membership":
+            result = await calendly.request("DELETE", f"/organization_memberships/{arguments['uuid']}")
+        elif name == "list_organization_invitations":
+            org = arguments.pop("organization")
+            result = await calendly.request("GET", f"/organizations/{org}/invitations", params=arguments)
+        elif name == "get_organization_invitation":
+            result = await calendly.request("GET", f"/organizations/{arguments['org_uuid']}/invitations/{arguments['invitation_uuid']}")
+        elif name == "create_organization_invitation":
+            org_uri = arguments.pop("organization")
+            org_uuid = org_uri.split("/")[-1]
+            result = await calendly.request("POST", f"/organizations/{org_uuid}/invitations", json_data=arguments)
+        elif name == "revoke_organization_invitation":
+            result = await calendly.request("DELETE", f"/organizations/{arguments['org_uuid']}/invitations/{arguments['invitation_uuid']}")
+            
+        # WEBHOOKS
+        elif name == "list_webhook_subscriptions":
+            result = await calendly.request("GET", "/webhook_subscriptions", params=arguments)
+        elif name == "create_webhook_subscription":
+            result = await calendly.request("POST", "/webhook_subscriptions", json_data=arguments)
+        elif name == "get_webhook_subscription":
+            result = await calendly.request("GET", f"/webhook_subscriptions/{arguments['webhook_uuid']}")
+        elif name == "delete_webhook_subscription":
+            result = await calendly.request("DELETE", f"/webhook_subscriptions/{arguments['webhook_uuid']}")
+            
+        # ROUTING FORMS
+        elif name == "list_routing_forms":
+            result = await calendly.request("GET", "/routing_forms", params=arguments)
+        elif name == "get_routing_form":
+            result = await calendly.request("GET", f"/routing_forms/{arguments['uuid']}")
+        elif name == "list_routing_form_submissions":
+            form_uuid = arguments.pop("form_uuid")
+            result = await calendly.request("GET", f"/routing_forms/{form_uuid}/submissions", params=arguments)
+        elif name == "get_routing_form_submission":
+            result = await calendly.request("GET", f"/routing_form_submissions/{arguments['uuid']}")
+            
+        # SCHEDULING LINKS
+        elif name == "create_scheduling_link":
+            result = await calendly.request("POST", "/scheduling_links", json_data=arguments)
+            
+        # NO-SHOWS
+        elif name == "create_invitee_no_show":
+            result = await calendly.request("POST", "/invitee_no_shows", json_data=arguments)
+        elif name == "get_invitee_no_show":
+            result = await calendly.request("GET", f"/invitee_no_shows/{arguments['uuid']}")
+        elif name == "delete_invitee_no_show":
+            result = await calendly.request("DELETE", f"/invitee_no_shows/{arguments['uuid']}")
+            
+        # DATA COMPLIANCE
+        elif name == "delete_invitee_data":
+            result = await calendly.request("POST", "/data_compliance/deletion/invitees", json_data=arguments)
+        
+        else:
+            result = {"error": True, "message": f"Unknown tool: {name}"}
+        
+        return [TextContent(type="text", text=str(result))]
+        
+    except Exception as e:
+        logger.error(f"Tool execution error: {str(e)}")
+        return [TextContent(type="text", text=f"Error: {str(e)}")]
 
-
-@app.tool()
-async def list_event_types(
-    user: Optional[str] = None,
-    organization: Optional[str] = None,
-    active: Optional[bool] = None,
-    count: int = 20
-) -> str:
-    """
-    List event types for a user or organization.
-    
-    Args:
-        user: URI of the user (e.g., https://api.calendly.com/users/XXX)
-        organization: URI of the organization
-        active: Filter by active status
-        count: Number of results to return (max 100)
-    """
-    params = {"count": count}
-    if user:
-        params["user"] = user
-    if organization:
-        params["organization"] = organization
-    if active is not None:
-        params["active"] = str(active).lower()
-    
-    result = await calendly.request("GET", "/event_types", params=params)
-    return str(result)
-
-
-@app.tool()
-async def update_event_type(
-    uuid: str,
-    name: Optional[str] = None,
-    duration: Optional[int] = None,
-    description_plain: Optional[str] = None,
-    description_html: Optional[str] = None,
-    location_kind: Optional[str] = None,
-    location_details: Optional[str] = None,
-    color: Optional[str] = None,
-    active: Optional[bool] = None
-) -> str:
-    """
-    Update an existing event type.
-    
-    Args:
-        uuid: The UUID of the event type to update
-        name: New name for the event type
-        duration: New duration in minutes
-        description_plain: Plain text description
-        description_html: HTML description
-        location_kind: Type of location (zoom_conference, google_conference, physical, etc.)
-        location_details: Additional location info
-        color: Hex color code (e.g., #8247f5)
-        active: Whether the event type is active
-    """
-    payload = {}
-    
-    if name is not None:
-        payload["name"] = name
-    if duration is not None:
-        payload["duration"] = duration
-    if description_plain is not None:
-        payload["description_plain"] = description_plain
-    if description_html is not None:
-        payload["description_html"] = description_html
-    if color is not None:
-        payload["color"] = color
-    if active is not None:
-        payload["active"] = active
-    
-    # Handle location
-    if location_kind:
-        location = {"kind": location_kind}
-        if location_details:
-            if location_kind == "physical":
-                location["location"] = location_details
-            elif location_kind in ["inbound_call", "outbound_call"]:
-                location["phone_number"] = location_details
-            else:
-                location["additional_info"] = location_details
-        payload["location"] = location
-    
-    result = await calendly.request("PATCH", f"/event_types/{uuid}", json=payload)
-    return str(result)
-
-
-@app.tool()
-async def delete_event_type(uuid: str) -> str:
-    """
-    Delete an event type.
-    
-    Args:
-        uuid: The UUID of the event type to delete
-    """
-    result = await calendly.request("DELETE", f"/event_types/{uuid}")
-    return str(result)
-
-
-# ============================================================================
-# AVAILABILITY SCHEDULES
-# ============================================================================
-
-@app.tool()
-async def get_user_availability_schedule(uuid: str) -> str:
-    """
-    Get details of a user availability schedule.
-    
-    Args:
-        uuid: The UUID of the availability schedule
-    """
-    result = await calendly.request("GET", f"/user_availability_schedules/{uuid}")
-    return str(result)
-
-
-@app.tool()
-async def list_user_availability_schedules(user: str) -> str:
-    """
-    List all availability schedules for a user.
-    
-    Args:
-        user: URI of the user (e.g., https://api.calendly.com/users/XXX)
-    """
-    params = {"user": user}
-    result = await calendly.request("GET", "/user_availability_schedules", params=params)
-    return str(result)
-
-
-@app.tool()
-async def create_user_availability_schedule(
-    user: str,
-    name: str,
-    timezone: str,
-    rules: str
-) -> str:
-    """
-    Create a new availability schedule.
-    
-    Args:
-        user: URI of the user
-        name: Name for the schedule
-        timezone: IANA timezone (e.g., America/New_York)
-        rules: JSON string of availability rules
-    """
-    import json
-    payload = {
-        "user": user,
-        "name": name,
-        "timezone": timezone,
-        "rules": json.loads(rules)
-    }
-    result = await calendly.request("POST", "/user_availability_schedules", json=payload)
-    return str(result)
-
-
-@app.tool()
-async def update_user_availability_schedule(
-    uuid: str,
-    name: Optional[str] = None,
-    timezone: Optional[str] = None,
-    rules: Optional[str] = None
-) -> str:
-    """
-    Update an existing availability schedule.
-    
-    Args:
-        uuid: The UUID of the schedule to update
-        name: New name for the schedule
-        timezone: New IANA timezone
-        rules: JSON string of new availability rules
-    """
-    import json
-    payload = {}
-    
-    if name is not None:
-        payload["name"] = name
-    if timezone is not None:
-        payload["timezone"] = timezone
-    if rules is not None:
-        payload["rules"] = json.loads(rules)
-    
-    result = await calendly.request("PATCH", f"/user_availability_schedules/{uuid}", json=payload)
-    return str(result)
-
-
-@app.tool()
-async def delete_user_availability_schedule(uuid: str) -> str:
-    """
-    Delete an availability schedule.
-    
-    Args:
-        uuid: The UUID of the schedule to delete
-    """
-    result = await calendly.request("DELETE", f"/user_availability_schedules/{uuid}")
-    return str(result)
-
-
-# ============================================================================
-# SCHEDULED EVENTS
-# ============================================================================
-
-@app.tool()
-async def get_event(uuid: str) -> str:
-    """
-    Get details of a scheduled event.
-    
-    Args:
-        uuid: The UUID of the scheduled event
-    """
-    result = await calendly.request("GET", f"/scheduled_events/{uuid}")
-    return str(result)
-
-
-@app.tool()
-async def list_events(
-    user: Optional[str] = None,
-    organization: Optional[str] = None,
-    invitee_email: Optional[str] = None,
-    status: Optional[str] = None,
-    min_start_time: Optional[str] = None,
-    max_start_time: Optional[str] = None,
-    count: int = 20
-) -> str:
-    """
-    List scheduled events.
-    
-    Args:
-        user: URI of the user
-        organization: URI of the organization
-        invitee_email: Filter by invitee email
-        status: Filter by status (active, canceled)
-        min_start_time: Minimum start time (ISO 8601)
-        max_start_time: Maximum start time (ISO 8601)
-        count: Number of results (max 100)
-    """
-    params = {"count": count}
-    if user:
-        params["user"] = user
-    if organization:
-        params["organization"] = organization
-    if invitee_email:
-        params["invitee_email"] = invitee_email
-    if status:
-        params["status"] = status
-    if min_start_time:
-        params["min_start_time"] = min_start_time
-    if max_start_time:
-        params["max_start_time"] = max_start_time
-    
-    result = await calendly.request("GET", "/scheduled_events", params=params)
-    return str(result)
-
-
-@app.tool()
-async def cancel_event(uuid: str, reason: Optional[str] = None) -> str:
-    """
-    Cancel a scheduled event.
-    
-    Args:
-        uuid: The UUID of the event to cancel
-        reason: Reason for cancellation (sent to invitees)
-    """
-    payload = {}
-    if reason:
-        payload["reason"] = reason
-    
-    result = await calendly.request("POST", f"/scheduled_events/{uuid}/cancellation", json=payload)
-    return str(result)
-
-
-@app.tool()
-async def list_event_invitees(
-    event_uuid: str,
-    email: Optional[str] = None,
-    status: Optional[str] = None,
-    count: int = 20
-) -> str:
-    """
-    List invitees for a scheduled event.
-    
-    Args:
-        event_uuid: UUID of the scheduled event
-        email: Filter by invitee email
-        status: Filter by status (active, canceled)
-        count: Number of results (max 100)
-    """
-    params = {"count": count}
-    if email:
-        params["email"] = email
-    if status:
-        params["status"] = status
-    
-    result = await calendly.request("GET", f"/scheduled_events/{event_uuid}/invitees", params=params)
-    return str(result)
-
-
-# ============================================================================
-# USERS
-# ============================================================================
-
-@app.tool()
-async def get_current_user() -> str:
-    """Get information about the currently authenticated user."""
-    result = await calendly.request("GET", "/users/me")
-    return str(result)
-
-
-@app.tool()
-async def get_user(uuid: str) -> str:
-    """
-    Get information about a specific user.
-    
-    Args:
-        uuid: The UUID of the user (or "me" for current user)
-    """
-    result = await calendly.request("GET", f"/users/{uuid}")
-    return str(result)
-
-
-# ============================================================================
-# WEBHOOKS
-# ============================================================================
-
-@app.tool()
-async def list_webhook_subscriptions(
-    organization: str,
-    scope: str = "organization"
-) -> str:
-    """
-    List webhook subscriptions.
-    
-    Args:
-        organization: URI of the organization
-        scope: Scope of webhooks (organization or user)
-    """
-    params = {
-        "organization": organization,
-        "scope": scope
-    }
-    result = await calendly.request("GET", "/webhook_subscriptions", params=params)
-    return str(result)
-
-
-@app.tool()
-async def create_webhook_subscription(
-    url: str,
-    organization: str,
-    events: str,
-    scope: str = "organization",
-    signing_key: Optional[str] = None
-) -> str:
-    """
-    Create a webhook subscription.
-    
-    Args:
-        url: The URL to send webhook events to
-        organization: URI of the organization
-        events: JSON array of event types to subscribe to
-        scope: Scope (organization or user)
-        signing_key: Optional signing key for webhook verification
-    """
-    import json
-    payload = {
-        "url": url,
-        "organization": organization,
-        "events": json.loads(events),
-        "scope": scope
-    }
-    if signing_key:
-        payload["signing_key"] = signing_key
-    
-    result = await calendly.request("POST", "/webhook_subscriptions", json=payload)
-    return str(result)
-
-
-@app.tool()
-async def delete_webhook_subscription(webhook_uuid: str) -> str:
-    """
-    Delete a webhook subscription.
-    
-    Args:
-        webhook_uuid: UUID of the webhook subscription to delete
-    """
-    result = await calendly.request("DELETE", f"/webhook_subscriptions/{webhook_uuid}")
-    return str(result)
-
-
-# ============================================================================
-# ORGANIZATION
-# ============================================================================
-
-@app.tool()
-async def list_organization_memberships(
-    organization: str,
-    email: Optional[str] = None,
-    count: int = 20
-) -> str:
-    """
-    List members of an organization.
-    
-    Args:
-        organization: URI of the organization
-        email: Filter by member email
-        count: Number of results (max 100)
-    """
-    params = {
-        "organization": organization,
-        "count": count
-    }
-    if email:
-        params["email"] = email
-    
-    result = await calendly.request("GET", "/organization_memberships", params=params)
-    return str(result)
-
-
-@app.tool()
-async def create_organization_invitation(
-    organization: str,
-    email: str
-) -> str:
-    """
-    Invite a user to an organization.
-    
-    Args:
-        organization: URI of the organization
-        email: Email address to invite
-    """
-    payload = {
-        "organization": organization,
-        "email": email
-    }
-    result = await calendly.request("POST", "/organization_invitations", json=payload)
-    return str(result)
-
-
-# ============================================================================
-# HELPER TOOLS
-# ============================================================================
-
-@app.tool()
-async def list_available_times(
-    event_type: str,
-    start_time: str,
-    end_time: str
-) -> str:
-    """
-    Get available time slots for an event type.
-    
-    Args:
-        event_type: URI of the event type
-        start_time: Start of range (ISO 8601)
-        end_time: End of range (ISO 8601)
-    """
-    params = {
-        "event_type": event_type,
-        "start_time": start_time,
-        "end_time": end_time
-    }
-    result = await calendly.request("GET", "/event_type_available_times", params=params)
-    return str(result)
-
-
-@app.tool()
-async def list_user_busy_times(
-    user: str,
-    start_time: str,
-    end_time: str
-) -> str:
-    """
-    Get busy times for a user.
-    
-    Args:
-        user: URI of the user
-        start_time: Start of range (ISO 8601)
-        end_time: End of range (ISO 8601)
-    """
-    params = {
-        "user": user,
-        "start_time": start_time,
-        "end_time": end_time
-    }
-    result = await calendly.request("GET", "/user_busy_times", params=params)
-    return str(result)
-
-
-# ============================================================================
-# SERVER ENTRY POINT
-# ============================================================================
 
 async def main():
     """Run the MCP server"""
-    from mcp.server.stdio import stdio_server
-    
     async with stdio_server() as (read_stream, write_stream):
-        logger.info("Calendly MCP Server starting...")
-        await app.run(
+        logger.info("🚀 Calendly MCP Server (ULTIMATE - Full API v2 + Event Type Management) starting...")
+        await server.run(
             read_stream,
             write_stream,
-            app.create_initialization_options()
+            InitializationOptions(
+                server_name="calendly-mcp",
+                server_version="2.1.0",
+                capabilities=server.get_capabilities(
+                    notification_options=NotificationOptions(),
+                    experimental_capabilities={}
+                )
+            )
         )
 
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
