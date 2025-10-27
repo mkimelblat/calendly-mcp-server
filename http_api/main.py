@@ -28,7 +28,7 @@ def get_api_key() -> str:
 async def calendly_request(method: str, endpoint: str, json_data: dict = None, params: dict = None):
     """Make a request to Calendly API"""
     api_key = get_api_key()
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.request(
@@ -42,19 +42,19 @@ async def calendly_request(method: str, endpoint: str, json_data: dict = None, p
                 params=params,
                 timeout=30.0
             )
-            
+
             if response.status_code >= 400:
                 return {
                     "error": True,
                     "status_code": response.status_code,
                     "message": response.text
                 }
-            
+
             if response.status_code == 204:
                 return {"success": True, "message": "Operation completed"}
-            
+
             return response.json()
-            
+
         except Exception as e:
             return {"error": True, "message": str(e)}
 
@@ -184,29 +184,29 @@ async def list_organization_memberships(organization: str) -> dict:
 
 
 # ============================================================================
-# EXPORT STREAMABLE HTTP APP
+# EXPORT STREAMABLE HTTP APP + STATIC .well-known
 # ============================================================================
 
-# Use streamable_http_app() instead of sse_app()
-app = mcp.streamable_http_app()
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+fastapi_app = FastAPI()
+
+# Mount .well-known for plugin discovery
+fastapi_app.mount("/.well-known", StaticFiles(directory=".well-known"), name="well-known")
+
+@fastapi_app.get("/")
+def healthcheck():
+    return {"status": "ok"}
+
+# Mount Claude MCP handler on /message
+fastapi_app.mount("/", mcp.streamable_http_app())
+
+# Entrypoint for local dev
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
     print(f"🚀 Calendly MCP Server (Streamable HTTP) starting on port {port}")
     print(f"📡 Endpoint: /message")
     print(f"🔓 Auth: None (using server-side API key)")
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-import os
-
-app = FastAPI()
-
-# Mount the .well-known directory for plugin discovery
-app.mount("/.well-known", StaticFiles(directory=".well-known"), name="well-known")
-
-@app.get("/")
-def healthcheck():
-    return {"status": "ok"}
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
