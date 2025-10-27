@@ -197,3 +197,7 @@ if __name__ == "__main__":
     print(f"📡 Endpoint: /message")
     print(f"🔓 Auth: None (using server-side API key)")
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/.well-known", StaticFiles(directory=".well-known"), name="well-known")
