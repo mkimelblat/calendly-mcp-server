@@ -198,6 +198,10 @@ if __name__ == "__main__":
     print(f"🔓 Auth: None (using server-side API key)")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
 
-app.mount("/.well-known", StaticFiles(directory=".well-known"), name="well-known")
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "ok"}
