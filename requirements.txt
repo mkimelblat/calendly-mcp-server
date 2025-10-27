@@ -1,0 +1,14 @@
+# MCP Server dependencies
+mcp>=0.9.0
+
+# HTTP client for API requests
+httpx>=0.25.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Async support
+anyio>=4.0.0
+
+# JSON schema validation
+pydantic>=2.0.0
