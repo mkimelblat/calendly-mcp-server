@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Allow all origins for plugin testing
+# Allow all CORS (for development/testing)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,3 +67,23 @@ async def oauth_server_info():
         "authorization_endpoint": "https://auth.calendly.com/oauth/authorize",
         "token_endpoint": "https://auth.calendly.com/oauth/token",
         "scopes_supported": ["read", "write"],
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "token_endpoint_auth_methods_supported": ["client_secret_basic"]
+    }
+
+@app.post("/register")
+async def register_user():
+    return {"status": "registered"}
+
+@app.get("/sse")
+async def sse_not_supported():
+    raise HTTPException(status_code=404, detail="SSE not supported")
+
+@app.options("/{rest_of_path:path}")
+async def handle_preflight(rest_of_path: str, request: Request):
+    return JSONResponse(status_code=200, content={"message": "CORS preflight OK"})
+
+@app.post("/")
+async def catch_post_root():
+    raise HTTPException(status_code=404, detail="Root POST not implemented")
