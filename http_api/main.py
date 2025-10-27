@@ -199,9 +199,14 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI()
 
+# Mount the .well-known directory for plugin discovery
+app.mount("/.well-known", StaticFiles(directory=".well-known"), name="well-known")
+
 @app.get("/")
-def read_root():
+def healthcheck():
     return {"status": "ok"}
