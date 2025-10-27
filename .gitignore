@@ -49,3 +49,4 @@ htmlcov/
 
 # MCP specific
 mcp_server.log
+server_backup.py
