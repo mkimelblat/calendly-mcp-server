@@ -9,7 +9,7 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://<your-repl-url>/.well-known/openapi.json",
+    "url": "https://calendly-mcp-server-production.up.railway.app/.well-known/openapi.json",
     "is_user_authenticated": true
   },
   "logo_url": "https://avatars.githubusercontent.com/u/2226605?s=48", 
