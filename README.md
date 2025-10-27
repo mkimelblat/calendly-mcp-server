@@ -1,28 +1,51 @@
 # Calendly MCP Server
 
-A complete Model Context Protocol (MCP) server for the Calendly API. This server provides full access to all Calendly API endpoints, including update and delete operations not available in other integrations.
+A complete Model Context Protocol (MCP) server for the Calendly API. This server provides full access to all Calendly API endpoints, including **Event Type Management APIs** for creating and updating event types programmatically.
+
+## 🆕 Latest Updates (v2.1.0)
+
+**NEW! Complete Event Type Management:**
+- ✅ **Create new event types** - Build event types programmatically
+- ✅ **Update existing event types** - Modify duration, location, description, and more
+- ✅ **Manage availability schedules** - Configure when event types are available
+- ✅ **List meeting locations** - Get all configured meeting location options
+
+Now includes **45+ Calendly API endpoints** with complete CRUD operations!
 
 ## Features
 
-✅ **Complete API Coverage** - All Calendly API endpoints
+✅ **Complete API Coverage** - All Calendly API v2 endpoints
+✅ **Event Type Management** - Create, read, update event types ⭐ NEW
+✅ **Scheduling API** - Book meetings programmatically
 ✅ **Update Operations** - Modify event types, schedules, and settings
-✅ **Delete Operations** - Remove event types and schedules
+✅ **Delete Operations** - Remove unwanted resources
 ✅ **Create Operations** - Full creation capabilities
 ✅ **Read Operations** - Query all Calendly data
 ✅ **Easy Setup** - Simple configuration with your API key
 
 ## What This Enables
 
-- Update event type durations, locations, and settings
-- Modify availability schedules and working hours
-- Delete unwanted event types
-- Create custom scheduling workflows
-- Bulk operations on multiple event types
-- And much more!
+### Event Type Management (NEW!)
+- Create new event types without using the Calendly UI
+- Update event type durations, locations, and settings in bulk
+- Modify availability schedules programmatically
+- Configure meeting locations via API
+
+### Scheduling & Events
+- Book meetings programmatically (Scheduling API)
+- Cancel and manage scheduled events
+- Track invitees and no-shows
+- Bulk operations on multiple events
+
+### Organization & Users
+- Manage organization memberships
+- Invite and remove users
+- Configure webhooks for real-time updates
+- GDPR compliance tools
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - A Calendly account
 - A Calendly API key (Personal Access Token)
 
@@ -31,13 +54,15 @@ A complete Model Context Protocol (MCP) server for the Calendly API. This server
 ### 1. Clone this repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/calendly-mcp-server.git
+git clone https://github.com/mkimelblat/calendly-mcp-server.git
 cd calendly-mcp-server
 ```
 
-### 2. Install dependencies
+### 2. Create a virtual environment and install dependencies
 
 ```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -72,7 +97,7 @@ Add this to your Claude Desktop configuration file:
 {
   "mcpServers": {
     "calendly": {
-      "command": "python",
+      "command": "/path/to/venv/bin/python",
       "args": ["/path/to/calendly-mcp-server/server.py"],
       "env": {
         "CALENDLY_API_KEY": "your_api_key_here"
@@ -81,6 +106,8 @@ Add this to your Claude Desktop configuration file:
   }
 }
 ```
+
+Replace `/path/to/` with your actual paths.
 
 ### Option 2: Using with Claude API
 
@@ -91,46 +118,57 @@ client = Anthropic(api_key="your_anthropic_api_key")
 
 # The MCP server will be available as tools
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
     tools=[...],  # MCP tools will be injected here
     messages=[
-        {"role": "user", "content": "Update my 30 min chat event type to 20 minutes"}
+        {"role": "user", "content": "Create a new 45 minute strategy session event type"}
     ]
 )
 ```
 
 ## Available Operations
 
-### Event Types
-- `get_event_type` - Get details of an event type
+### Event Type Management ⭐ NEW
+- `create_event_type` - **Create new event types programmatically**
+- `update_event_type` - **Update event type settings**
 - `list_event_types` - List all event types
-- `create_event_type` - Create a new event type
-- `update_event_type` - **Update event type settings** ✨
-- `delete_event_type` - **Delete an event type** ✨
-
-### Availability Schedules
-- `get_user_availability_schedule` - Get schedule details
-- `list_user_availability_schedules` - List all schedules
-- `create_user_availability_schedule` - Create new schedule
-- `update_user_availability_schedule` - **Modify schedule** ✨
-- `delete_user_availability_schedule` - **Remove schedule** ✨
+- `get_event_type` - Get event type details
+- `list_event_type_availability_schedules` - **List availability schedules**
+- `update_event_type_availability_schedule` - **Modify availability**
+- `list_user_meeting_locations` - **Get meeting location options**
 
 ### Scheduled Events
-- `get_event` - Get event details
+- `create_event_invitee` - **Book meetings programmatically** (Scheduling API)
 - `list_events` - List scheduled events
+- `get_event` - Get event details
 - `cancel_event` - Cancel a scheduled event
 - `list_event_invitees` - Get invitee information
 
-### Users
+### Users & Organization
 - `get_current_user` - Get your user information
 - `get_user` - Get any user's information
+- `list_organization_memberships` - List organization members
+- `create_organization_invitation` - Invite users
+- `delete_organization_membership` - Remove users
 
-### And many more!
+### Webhooks
+- `create_webhook_subscription` - Set up real-time notifications
+- `list_webhook_subscriptions` - List active webhooks
+- `delete_webhook_subscription` - Remove webhooks
+
+### And 30+ more!
 
 See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.
 
 ## Examples
+
+### Create a new event type
+
+```python
+# Through Claude:
+"Create a new 45-minute event type called 'Strategy Session' with Zoom as the location"
+```
 
 ### Update an event type duration
 
@@ -146,19 +184,36 @@ See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.
 "Change my 'Team Sync' event type location from Google Meet to Zoom"
 ```
 
-### Delete test event types
+### Book a meeting programmatically
 
 ```python
 # Through Claude:
-"Delete all event types that start with 'Test'"
+"Schedule a meeting for john@example.com tomorrow at 2pm using my '30 min chat' event type"
 ```
 
-### Block Friday afternoons
+### Bulk update event types
 
 ```python
 # Through Claude:
-"Update my availability schedule to block every Friday after 2pm"
+"Update all my 30-minute event types to 25 minutes"
 ```
+
+## API Endpoint Coverage
+
+This server provides access to **45+ Calendly API v2 endpoints**:
+
+- ✅ Users (2 endpoints)
+- ✅ Event Types (7 endpoints) - Including NEW management APIs
+- ✅ Scheduled Events (5 endpoints) - Including Scheduling API
+- ✅ Event Invitees (2 endpoints)
+- ✅ Availability Schedules (3 endpoints)
+- ✅ Organizations (7 endpoints)
+- ✅ Webhooks (4 endpoints)
+- ✅ Routing Forms (4 endpoints)
+- ✅ Scheduling Links (1 endpoint)
+- ✅ No-Shows (3 endpoints)
+- ✅ Meeting Locations (1 endpoint) - NEW
+- ✅ Data Compliance (1 endpoint)
 
 ## Contributing
 
@@ -191,6 +246,12 @@ Check that your `CALENDLY_API_KEY` is correct and hasn't expired.
 ### Connection issues
 Ensure you have internet connectivity and can reach api.calendly.com
 
+### Python version errors
+Make sure you're using Python 3.10 or higher:
+```bash
+python3 --version
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details
@@ -207,6 +268,20 @@ For issues and questions:
 - Open an issue on GitHub
 - Check the [Calendly API documentation](https://developer.calendly.com/api-docs)
 - Review the [MCP documentation](https://modelcontextprotocol.io)
+
+## Version History
+
+### v2.1.0 (Current)
+- Added Event Type Management APIs
+- Create and update event types programmatically
+- Manage event type availability schedules
+- List user meeting locations
+- Complete coverage of all Calendly API v2 endpoints (45+ tools)
+
+### v1.0.0
+- Initial release
+- Core API endpoint coverage
+- Scheduling API support
 
 ---
 
