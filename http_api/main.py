@@ -16,7 +16,7 @@ mcp = FastMCP("Calendly Complete API")
 
 CALENDLY_BASE_URL = "https://api.calendly.com"
 
-# Get API key from environment or context
+
 def get_api_key() -> str:
     """Get Calendly API key from environment"""
     api_key = os.getenv("CALENDLY_API_KEY")
@@ -252,9 +252,14 @@ async def list_organization_memberships(organization: str) -> dict:
 
 
 # ============================================================================
-# SERVER STARTUP
+# EXPORT ASGI APP FOR RAILWAY
 # ============================================================================
 
+# Create the ASGI app that Railway expects
+app = mcp.sse_app()
+
+# For local development
 if __name__ == "__main__":
-    # Run the SSE server
-    mcp.run(transport="sse")
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
