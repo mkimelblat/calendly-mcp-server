@@ -1,15 +1,20 @@
 """
-Calendly MCP Server - SSE Transport for Claude.ai Custom Connectors
+Calendly MCP Server - Authless SSE Transport
 Version 2.1.0
 
-Uses FastMCP to expose Calendly API over MCP protocol with SSE transport.
-Compatible with Claude.ai custom connectors.
+Properly configured authless MCP server for Claude.ai custom connectors.
 """
 
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.routing import Route, Mount
+from starlette.responses import JSONResponse
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 import httpx
 import os
 from typing import Optional
+import uvicorn
 
 # Initialize FastMCP server
 mcp = FastMCP("Calendly Complete API")
@@ -60,7 +65,7 @@ async def calendly_request(method: str, endpoint: str, json_data: dict = None, p
 
 
 # ============================================================================
-# TOOLS - USER ENDPOINTS
+# TOOLS
 # ============================================================================
 
 @mcp.tool()
@@ -74,10 +79,6 @@ async def get_user(uuid: str) -> dict:
     """Get information about a specific user by UUID"""
     return await calendly_request("GET", f"users/{uuid}")
 
-
-# ============================================================================
-# TOOLS - EVENT TYPE MANAGEMENT
-# ============================================================================
 
 @mcp.tool()
 async def create_event_type(
@@ -184,10 +185,6 @@ async def list_user_meeting_locations(user: str) -> dict:
     return await calendly_request("GET", "location", params={"user": user})
 
 
-# ============================================================================
-# TOOLS - SCHEDULED EVENTS
-# ============================================================================
-
 @mcp.tool()
 async def list_events(
     user: Optional[str] = None,
@@ -235,10 +232,6 @@ async def cancel_event(uuid: str, reason: Optional[str] = None) -> dict:
     return await calendly_request("POST", f"scheduled_events/{uuid}/cancellation", json_data=payload)
 
 
-# ============================================================================
-# TOOLS - ORGANIZATIONS
-# ============================================================================
-
 @mcp.tool()
 async def get_organization(uuid: str) -> dict:
     """Get organization details by UUID"""
@@ -252,14 +245,69 @@ async def list_organization_memberships(organization: str) -> dict:
 
 
 # ============================================================================
-# EXPORT ASGI APP FOR RAILWAY
+# CUSTOM ROUTES FOR AUTHLESS MCP
 # ============================================================================
 
-# Create the ASGI app that Railway expects
-app = mcp.sse_app()
+async def root_handler(request):
+    """Root endpoint - indicates this is an authless MCP server"""
+    return JSONResponse({
+        "name": "Calendly Complete API",
+        "version": "2.1.0",
+        "protocol": "mcp",
+        "transport": "sse",
+        "auth": "none",
+        "description": "Authless MCP server for Calendly API",
+        "endpoints": {
+            "sse": "/sse",
+            "messages": "/messages/"
+        }
+    })
 
-# For local development
+
+async def well_known_handler(request):
+    """Return 404 for OAuth discovery - this is an authless server"""
+    return JSONResponse(
+        {"error": "This is an authless MCP server - no OAuth required"},
+        status_code=404
+    )
+
+
+# ============================================================================
+# CREATE APPLICATION WITH CORS
+# ============================================================================
+
+# Get the MCP SSE app
+mcp_app = mcp.sse_app()
+
+# Create custom routes
+routes = [
+    Route("/", root_handler),
+    Route("/.well-known/oauth-protected-resource", well_known_handler),
+    Route("/.well-known/oauth-authorization-server", well_known_handler),
+    Mount("/", app=mcp_app),  # Mount MCP app for /sse and /messages
+]
+
+# Create Starlette app with CORS middleware
+middleware = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+
+
+# ============================================================================
+# SERVER STARTUP
+# ============================================================================
+
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", 8000))
+    print(f"🚀 Calendly MCP Server (Authless SSE) starting on port {port}")
+    print(f"📡 SSE endpoint: /sse")
+    print(f"🔓 Auth: None (using server-side API key)")
     uvicorn.run(app, host="0.0.0.0", port=port)
