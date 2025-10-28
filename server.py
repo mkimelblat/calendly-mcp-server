@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Calendly MCP Server - COMPLETE API Coverage (v2.1)
+Calendly MCP Server - COMPLETE API Coverage (v2.2)
 
 The most comprehensive Model Context Protocol server for Calendly API v2.
 Includes ALL endpoints including Event Type Management APIs.
+
+FIXED: create_event_invitee now uses correct Scheduling API structure
 """
 
 import os
@@ -182,16 +184,12 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["event_type", "start_time", "end_time"]
             }
         ),
-        
-        # EVENT TYPE AVAILABILITY SCHEDULES (NEW!)
         Tool(
             name="list_event_type_availability_schedules",
             description="🆕 List availability schedules for an event type",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "event_type": {"type": "string", "description": "Event type UUID"}
-                },
+                "properties": {"event_type": {"type": "string", "description": "Event type UUID"}},
                 "required": ["event_type"]
             }
         ),
@@ -218,27 +216,23 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {
                     "event_type": {"type": "string", "description": "Full event type URI (e.g., https://api.calendly.com/event_types/UUID)"},
                     "availability_rule": {"type": "string", "description": "JSON string containing rules array and timezone"},
-                    "user": {"type": "string", "description": "User URI"},
-                    "availability_setting": {"type": "string", "description": "host or custom"}
+                    "availability_setting": {"type": "string", "description": "host or custom"},
+                    "user": {"type": "string", "description": "User URI"}
                 },
                 "required": ["event_type", "availability_rule", "availability_setting"]
             }
         ),
-        
-        # MEETING LOCATIONS (NEW!)
         Tool(
             name="list_user_meeting_locations",
             description="🆕 List available meeting locations for a user",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "user": {"type": "string", "description": "User URI"}
-                },
+                "properties": {"user": {"type": "string", "description": "User URI"}},
                 "required": ["user"]
             }
         ),
         
-        # SCHEDULED EVENTS ENDPOINTS
+        # SCHEDULED EVENTS
         Tool(
             name="list_events",
             description="List scheduled events with various filters",
@@ -278,25 +272,29 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="create_event_invitee",
-            description="🆕 SCHEDULING API: Create a scheduled event (book a meeting) programmatically",
+            description="""🆕 SCHEDULING API: Create a scheduled event (book a meeting) programmatically""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "event_type_uuid": {"type": "string", "description": "Event type UUID"},
                     "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
-                    "email": {"type": "string", "description": "Invitee email"},
                     "name": {"type": "string", "description": "Invitee full name"},
+                    "email": {"type": "string", "description": "Invitee email"},
                     "first_name": {"type": "string", "description": "Invitee first name"},
                     "last_name": {"type": "string", "description": "Invitee last name"},
                     "timezone": {"type": "string", "description": "Timezone (e.g., America/New_York)"},
-                    "guests": {"type": "array", "description": "Array of guest email addresses"},
-                    "questions_and_answers": {"type": "string", "description": "JSON string of Q&A pairs"}
+                    "text_reminder_number": {"type": "string", "description": "Phone number for SMS reminders (E.164 format, e.g., +14155551234)"},
+                    "location_kind": {"type": "string", "description": "Location type: physical, inbound_call, outbound_call, ask_invitee, zoom_conference, google_conference, gotomeeting_conference, microsoft_teams_conference, webex_conference, custom"},
+                    "location_location": {"type": "string", "description": "Additional location details (required for ask_invitee, outbound_call, custom, or physical if multiple options exist)"},
+                    "guests": {"type": "array", "description": "Array of guest email addresses (max 10)"},
+                    "questions_and_answers": {"type": "string", "description": "JSON string of Q&A pairs"},
+                    "tracking": {"type": "string", "description": "JSON string with UTM parameters and salesforce_uuid"}
                 },
-                "required": ["event_type_uuid", "start_time", "email", "name"]
+                "required": ["event_type_uuid", "start_time", "name", "email"]
             }
         ),
         
-        # EVENT INVITEES ENDPOINTS
+        # EVENT INVITEES
         Tool(
             name="list_event_invitees",
             description="List invitees for a scheduled event",
@@ -324,7 +322,7 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         
-        # AVAILABILITY SCHEDULES
+        # AVAILABILITY
         Tool(
             name="list_user_availability_schedules",
             description="List availability schedules for a user",
@@ -357,7 +355,7 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         
-        # ORGANIZATION ENDPOINTS
+        # ORGANIZATION
         Tool(
             name="get_organization",
             description="Get organization details by UUID",
@@ -417,7 +415,10 @@ async def handle_list_tools() -> list[Tool]:
             description="Get details of an organization invitation",
             inputSchema={
                 "type": "object",
-                "properties": {"org_uuid": {"type": "string"}, "invitation_uuid": {"type": "string"}},
+                "properties": {
+                    "org_uuid": {"type": "string"},
+                    "invitation_uuid": {"type": "string"}
+                },
                 "required": ["org_uuid", "invitation_uuid"]
             }
         ),
@@ -438,12 +439,15 @@ async def handle_list_tools() -> list[Tool]:
             description="Revoke a pending organization invitation",
             inputSchema={
                 "type": "object",
-                "properties": {"org_uuid": {"type": "string"}, "invitation_uuid": {"type": "string"}},
+                "properties": {
+                    "org_uuid": {"type": "string"},
+                    "invitation_uuid": {"type": "string"}
+                },
                 "required": ["org_uuid", "invitation_uuid"]
             }
         ),
         
-        # WEBHOOK ENDPOINTS
+        # WEBHOOKS
         Tool(
             name="list_webhook_subscriptions",
             description="List webhook subscriptions for an organization",
@@ -463,12 +467,12 @@ async def handle_list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "url": {"type": "string", "description": "Webhook URL"},
-                    "organization": {"type": "string", "description": "Organization URI"},
                     "events": {"type": "array", "description": "Array of event types"},
+                    "organization": {"type": "string", "description": "Organization URI"},
                     "scope": {"type": "string", "description": "Scope: organization or user"},
                     "signing_key": {"type": "string", "description": "Optional signing key"}
                 },
-                "required": ["url", "organization", "events"]
+                "required": ["url", "events", "organization"]
             }
         ),
         Tool(
@@ -549,7 +553,7 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         
-        # INVITEE NO-SHOWS
+        # NO-SHOWS
         Tool(
             name="create_invitee_no_show",
             description="Mark an invitee as a no-show",
@@ -578,7 +582,7 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         
-        # DATA COMPLIANCE (GDPR)
+        # DATA COMPLIANCE
         Tool(
             name="delete_invitee_data",
             description="Delete all data for invitee emails (GDPR compliance)",
@@ -587,78 +591,97 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {"emails": {"type": "array", "description": "Array of email addresses"}},
                 "required": ["emails"]
             }
-        ),
+        )
     ]
 
 
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
-    """Handle tool execution - COMPLETE API coverage including Event Type Management"""
-    
+    """Execute a Calendly API tool"""
     try:
-        result = None
-        
         # USER ENDPOINTS
         if name == "get_current_user":
             result = await calendly.request("GET", "/users/me")
         elif name == "get_user":
             result = await calendly.request("GET", f"/users/{arguments['uuid']}")
             
-        # EVENT TYPE MANAGEMENT (NEW!)
+        # EVENT TYPE MANAGEMENT ENDPOINTS
         elif name == "create_event_type":
-            payload = {
+            # Build the profile object
+            profile = {
+                "type": "one_on_one",
                 "name": arguments["name"],
-                "owner": arguments["owner"],
                 "duration": arguments["duration"]
             }
-            optional = ["description", "color", "visibility", "locale"]
-            for key in optional:
-                if key in arguments:
-                    payload[key] = arguments[key]
             
-            # Handle location
+            # Build the location object
+            location = {}
             if "location_kind" in arguments:
-                location = {"kind": arguments["location_kind"]}
-                if "location_details" in arguments:
-                    if arguments["location_kind"] == "physical":
-                        location["location"] = arguments["location_details"]
-                    else:
-                        location["additional_info"] = arguments["location_details"]
-                payload["locations"] = [location]
+                location["kind"] = arguments["location_kind"]
+            if "location_details" in arguments:
+                location["additional_info"] = arguments["location_details"]
+            
+            # Build the main payload
+            payload = {
+                "profile": profile,
+                "location": location,
+                "owner": arguments["owner"]
+            }
+            
+            # Add optional fields
+            if "description" in arguments:
+                payload["description"] = arguments["description"]
+            if "color" in arguments:
+                payload["color"] = arguments["color"]
+            if "visibility" in arguments:
+                payload["visibility"] = arguments["visibility"]
+            if "locale" in arguments:
+                payload["locale"] = arguments["locale"]
             
             result = await calendly.request("POST", "/event_types", json_data=payload)
-            
+        
         elif name == "update_event_type":
-            uuid = arguments.pop("uuid")
             payload = {}
             
-            for key in ["name", "duration", "description", "color", "visibility", "active"]:
-                if key in arguments:
-                    payload[key] = arguments[key]
+            # Handle profile updates
+            if any(key in arguments for key in ["name", "duration"]):
+                payload["profile"] = {}
+                if "name" in arguments:
+                    payload["profile"]["name"] = arguments["name"]
+                if "duration" in arguments:
+                    payload["profile"]["duration"] = arguments["duration"]
             
-            # Handle location
-            if "location_kind" in arguments:
-                location = {"kind": arguments["location_kind"]}
+            # Handle location updates
+            if "location_kind" in arguments or "location_details" in arguments:
+                payload["location"] = {}
+                if "location_kind" in arguments:
+                    payload["location"]["kind"] = arguments["location_kind"]
                 if "location_details" in arguments:
-                    if arguments["location_kind"] == "physical":
-                        location["location"] = arguments["location_details"]
-                    else:
-                        location["additional_info"] = arguments["location_details"]
-                payload["locations"] = [location]
+                    payload["location"]["additional_info"] = arguments["location_details"]
             
-            result = await calendly.request("PATCH", f"/event_types/{uuid}", json_data=payload)
+            # Add other optional fields
+            optional_fields = ["description", "color", "visibility", "active"]
+            for field in optional_fields:
+                if field in arguments:
+                    payload[field] = arguments[field]
             
-        # EVENT TYPE AVAILABILITY SCHEDULES (NEW!)
+            result = await calendly.request("PATCH", f"/event_types/{arguments['uuid']}", json_data=payload)
+        
+        # AVAILABILITY SCHEDULE (NEW!)
         elif name == "list_event_type_availability_schedules":
-            result = await calendly.request("GET", "/event_type_availability_schedules",
-                                           params={"event_type": arguments["event_type"]})
+            params = {"event_type": arguments["event_type"]}
+            result = await calendly.request("GET", "/event_type_availability_schedules", params=params)
+        
         elif name == "update_event_type_availability_schedule":
-            event_type = arguments["event_type"]
+            # Parse the availability_rule JSON string
+            availability_rule = json.loads(arguments["availability_rule"])
             
-            # Build payload with correct parameter name
-            payload = {}
-            if "availability_rule" in arguments:
-                payload["availability_rule"] = json.loads(arguments["availability_rule"])
+            # Build the payload
+            payload = {
+                "availability_rule": availability_rule
+            }
+            
+            # Add user if provided
             if "user" in arguments:
                 payload["user"] = arguments["user"]
             if "availability_setting" in arguments:
@@ -667,6 +690,7 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             # CRITICAL: Use query parameter, not path parameter
             # Correct: PATCH /event_type_availability_schedules?event_type={{uri}}
             # Wrong:   PUT /event_type_availability_schedules/{uuid}
+            event_type = arguments["event_type"]
             params = {"event_type": event_type}
             result = await calendly.request("PATCH", "/event_type_availability_schedules",
                                            params=params, json_data=payload)
@@ -706,21 +730,77 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             if "reason" in arguments:
                 payload["reason"] = arguments["reason"]
             result = await calendly.request("POST", f"/scheduled_events/{arguments['uuid']}/cancellation", json_data=payload)
+        
+        # ============================================
+        # CRITICAL FIX: create_event_invitee
+        # ============================================
         elif name == "create_event_invitee":
-            # SCHEDULING API
-            payload = {
-                "event_type_uuid": arguments["event_type_uuid"],
-                "start_time": arguments["start_time"],
-                "email": arguments["email"],
-                "name": arguments["name"]
+            # Build the CORRECT nested structure per Calendly Scheduling API
+            
+            # 1. Convert event_type_uuid to full URI
+            event_type_uri = f"https://api.calendly.com/event_types/{arguments['event_type_uuid']}"
+            
+            # 2. Build the invitee object (nested structure)
+            invitee = {
+                "email": arguments["email"]
             }
-            optional = ["first_name", "last_name", "timezone", "guests"]
-            for key in optional:
-                if key in arguments:
-                    payload[key] = arguments[key]
+            
+            # Handle name vs first_name/last_name (conditionally required)
+            if "name" in arguments:
+                invitee["name"] = arguments["name"]
+            if "first_name" in arguments:
+                invitee["first_name"] = arguments["first_name"]
+            if "last_name" in arguments:
+                invitee["last_name"] = arguments["last_name"]
+            
+            # Add optional invitee fields
+            if "timezone" in arguments:
+                invitee["timezone"] = arguments["timezone"]
+            if "text_reminder_number" in arguments:
+                invitee["text_reminder_number"] = arguments["text_reminder_number"]
+            
+            # 3. Build the main payload with correct structure
+            payload = {
+                "event_type": event_type_uri,  # Full URI, not UUID
+                "start_time": arguments["start_time"],
+                "invitee": invitee  # Nested object
+            }
+            
+            # 4. Handle LOCATION object (conditional, with nuances)
+            # Required unless Event Type doesn't specify a location
+            # When included, must contain location.kind
+            # If location.kind requires invitee input (ask_invitee, outbound_call, 
+            # custom, or physical with multiple options), must include location.location
+            if "location_kind" in arguments:
+                location = {
+                    "kind": arguments["location_kind"]
+                }
+                # Add location.location if provided
+                # Required for: ask_invitee, outbound_call, custom (if multiple), 
+                # physical (if multiple)
+                if "location_location" in arguments:
+                    location["location"] = arguments["location_location"]
+                
+                payload["location"] = location
+            
+            # 5. Add optional top-level fields
+            if "guests" in arguments:
+                # Note: Guest support may not be in Beta release per spec
+                payload["event_guests"] = arguments["guests"]
+            
+            if "text_reminder_number" in arguments:
+                # Top-level text_reminder_number (separate from invitee.text_reminder_number)
+                payload["text_reminder_number"] = arguments["text_reminder_number"]
+            
             if "questions_and_answers" in arguments:
                 payload["questions_and_answers"] = json.loads(arguments["questions_and_answers"])
-            result = await calendly.request("POST", "/scheduled_events", json_data=payload)
+            
+            if "tracking" in arguments:
+                payload["tracking"] = json.loads(arguments["tracking"])
+            
+            # 6. Make the API request to the CORRECT endpoint
+            # Per spec: POST https://api.calendly.com/invitees
+            result = await calendly.request("POST", "/invitees", json_data=payload)
             
         # EVENT INVITEES
         elif name == "list_event_invitees":
@@ -814,13 +894,13 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
 async def main():
     """Run the MCP server"""
     async with stdio_server() as (read_stream, write_stream):
-        logger.info("🚀 Calendly MCP Server (ULTIMATE - Full API v2 + Event Type Management) starting...")
+        logger.info("🚀 Calendly MCP Server (v2.2 - Fixed create_event_invitee) starting...")
         await server.run(
             read_stream,
             write_stream,
             InitializationOptions(
                 server_name="calendly-mcp",
-                server_version="2.1.0",
+                server_version="2.2.0",
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={}
