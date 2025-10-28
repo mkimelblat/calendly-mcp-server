@@ -121,7 +121,7 @@ response = client.messages.create(
 
 ## Available Operations
 
-### Event Type Management ⭐ NEW
+### Event Type Management
 - `create_event_type` - **Create new event types programmatically**
 - `update_event_type` - **Update event type settings**
 - `list_event_types` - List all event types
