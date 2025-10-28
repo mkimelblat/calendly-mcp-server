@@ -197,16 +197,31 @@ async def handle_list_tools() -> list[Tool]:
         ),
         Tool(
             name="update_event_type_availability_schedule",
-            description="🆕 Update availability schedule for an event type",
+            description="""🆕 Update availability schedule for an event type
+            
+            IMPORTANT: 
+            - event_type must be FULL URI (https://api.calendly.com/event_types/UUID)
+            - availability_rule must include 'rules' array AND 'timezone'
+            - To block a day, set intervals to [] (empty array)
+            
+            Example availability_rule JSON string:
+            {
+              "rules": [
+                {"type": "wday", "wday": "monday", "intervals": [{"from": "09:00", "to": "17:00"}]},
+                {"type": "wday", "wday": "friday", "intervals": []}
+              ],
+              "timezone": "America/Los_Angeles"
+            }
+            """,
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "event_type": {"type": "string", "description": "Event type UUID"},
-                    "availability_rules": {"type": "string", "description": "JSON string of availability rules"},
+                    "event_type": {"type": "string", "description": "Full event type URI (e.g., https://api.calendly.com/event_types/UUID)"},
+                    "availability_rule": {"type": "string", "description": "JSON string containing rules array and timezone"},
                     "user": {"type": "string", "description": "User URI"},
                     "availability_setting": {"type": "string", "description": "host or custom"}
                 },
-                "required": ["event_type"]
+                "required": ["event_type", "availability_rule", "availability_setting"]
             }
         ),
         
@@ -638,16 +653,23 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             result = await calendly.request("GET", "/event_type_availability_schedules", 
                                            params={"event_type": arguments["event_type"]})
         elif name == "update_event_type_availability_schedule":
-            event_type = arguments.pop("event_type")
+            event_type = arguments["event_type"]
+            
+            # Build payload with correct parameter name
             payload = {}
-            if "availability_rules" in arguments:
-                payload["availability_rule"] = json.loads(arguments["availability_rules"])
+            if "availability_rule" in arguments:
+                payload["availability_rule"] = json.loads(arguments["availability_rule"])
             if "user" in arguments:
                 payload["user"] = arguments["user"]
             if "availability_setting" in arguments:
                 payload["availability_setting"] = arguments["availability_setting"]
-            result = await calendly.request("PATCH", f"/event_type_availability_schedules/{event_type}", 
-                                           json_data=payload)
+            
+            # CRITICAL: Use query parameter, not path parameter
+            # Correct: PUT /event_type_availability_schedules?event_type={{uri}}
+            # Wrong:   PATCH /event_type_availability_schedules/{uuid}
+            params = {"event_type": event_type}
+            result = await calendly.request("PUT", "/event_type_availability_schedules", 
+                                           params=params, json_data=payload)
         
         # MEETING LOCATIONS (NEW!)
         elif name == "list_user_meeting_locations":
