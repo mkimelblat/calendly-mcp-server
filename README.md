@@ -2,28 +2,16 @@
 
 A complete Model Context Protocol (MCP) server for the Calendly API. This server provides full access to all Calendly API endpoints, including the newly released **Scheduling API** and **Event Type Management APIs**.
 
-Includes **45+ Calendly API endpoints** with CRUD operations!
-
-## Features
-
-✅ **Complete API Coverage** - All Calendly API v2 endpoints
-✅ **Event Type Management** - Create, read, update event types
-✅ **Scheduling API** - Book meetings programmatically
-✅ **Update Operations** - Modify event types, schedules, and settings
-✅ **Delete Operations** - Remove unwanted resources
-✅ **Create Operations** - Full creation capabilities
-✅ **Read Operations** - Query all Calendly data
-✅ **Easy Setup** - Simple configuration with your API key
-
 ## What This Enables
 
 ### Event Type Management
-- Create new event types without using the Calendly UI (one-on-one event types only)
-- Update event type durations, locations, and settings in bulk
+- Create new event types without using the Calendly UI (1:1 event types only)
+- Update event type durations, locations, and settings in bulk (1:1 event types only)
 - Modify availability schedules programmatically
 - Configure meeting locations via API
 
 ### Scheduling & Events
+- View and analyze availability
 - Book meetings programmatically (Scheduling API)
 - Cancel and manage scheduled events
 - Track invitees and no-shows
