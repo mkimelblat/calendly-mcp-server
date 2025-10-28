@@ -45,9 +45,9 @@ class CalendlyClient:
         }
     
     async def request(
-        self, 
-        method: str, 
-        endpoint: str, 
+        self,
+        method: str,
+        endpoint: str,
         params: Optional[Dict] = None,
         json_data: Optional[Dict] = None
     ) -> Dict[str, Any]:
@@ -650,7 +650,7 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             
         # EVENT TYPE AVAILABILITY SCHEDULES (NEW!)
         elif name == "list_event_type_availability_schedules":
-            result = await calendly.request("GET", "/event_type_availability_schedules", 
+            result = await calendly.request("GET", "/event_type_availability_schedules",
                                            params={"event_type": arguments["event_type"]})
         elif name == "update_event_type_availability_schedule":
             event_type = arguments["event_type"]
@@ -665,10 +665,10 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
                 payload["availability_setting"] = arguments["availability_setting"]
             
             # CRITICAL: Use query parameter, not path parameter
-            # Correct: PUT /event_type_availability_schedules?event_type={{uri}}
-            # Wrong:   PATCH /event_type_availability_schedules/{uuid}
+            # Correct: PATCH /event_type_availability_schedules?event_type={{uri}}
+            # Wrong:   PUT /event_type_availability_schedules/{uuid}
             params = {"event_type": event_type}
-            result = await calendly.request("PUT", "/event_type_availability_schedules", 
+            result = await calendly.request("PATCH", "/event_type_availability_schedules",
                                            params=params, json_data=payload)
         
         # MEETING LOCATIONS (NEW!)
