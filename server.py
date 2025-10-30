@@ -640,24 +640,25 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             
         # EVENT TYPE MANAGEMENT
         elif name == "create_event_type":
-            # Build location object if specified
             payload = {
                 "name": arguments["name"],
-                "host": arguments["owner"],
+                "owner": arguments["owner"],
                 "duration": arguments["duration"]
             }
-            
-            # Add optional fields
-            for field in ["description", "color", "visibility", "locale"]:
-                if field in arguments:
-                    payload[field] = arguments[field]
+            optional = ["description", "color", "visibility", "locale"]
+            for key in optional:
+                if key in arguments:
+                    payload[key] = arguments[key]
             
             # Handle location
             if "location_kind" in arguments:
                 location = {"kind": arguments["location_kind"]}
                 if "location_details" in arguments:
-                    location["location"] = arguments["location_details"]
-                payload["location"] = location
+                    if arguments["location_kind"] == "physical":
+                        location["location"] = arguments["location_details"]
+                    else:
+                        location["additional_info"] = arguments["location_details"]
+                payload["locations"] = [location]
             
             result = await calendly.request("POST", "/event_types", json_data=payload)
             
@@ -665,17 +666,19 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
             uuid = arguments.pop("uuid")
             payload = {}
             
-            # Add any provided fields to payload
-            for field in ["name", "duration", "description", "color", "visibility", "active"]:
-                if field in arguments:
-                    payload[field] = arguments[field]
+            for key in ["name", "duration", "description", "color", "visibility", "active"]:
+                if key in arguments:
+                    payload[key] = arguments[key]
             
-            # Handle location update
+            # Handle location
             if "location_kind" in arguments:
                 location = {"kind": arguments["location_kind"]}
                 if "location_details" in arguments:
-                    location["location"] = arguments["location_details"]
-                payload["location"] = location
+                    if arguments["location_kind"] == "physical":
+                        location["location"] = arguments["location_details"]
+                    else:
+                        location["additional_info"] = arguments["location_details"]
+                payload["locations"] = [location]
             
             result = await calendly.request("PATCH", f"/event_types/{uuid}", json_data=payload)
             
@@ -686,30 +689,21 @@ async def handle_call_tool(name: str, arguments: dict) -> Sequence[TextContent]:
         elif name == "list_event_type_available_times":
             result = await calendly.request("GET", "/event_type_available_times", params=arguments)
         elif name == "list_event_type_availability_schedules":
-            result = await calendly.request("GET", f"/event_types/{arguments['event_type']}/availability_schedules")
+            result = await calendly.request("GET", "/event_type_availability_schedules", 
+                                           params={"event_type": arguments["event_type"]})
         elif name == "update_event_type_availability_schedule":
-            # Parse the availability_rule JSON string
-            availability_rule = json.loads(arguments["availability_rule"])
-            
-            payload = {
-                "availability_setting": arguments["availability_setting"],
-                "availability_rule": availability_rule
-            }
-            
+            event_type = arguments.pop("event_type")
+            payload = {}
+            if "availability_rule" in arguments:
+                payload["availability_rule"] = json.loads(arguments["availability_rule"])
             if "user" in arguments:
                 payload["user"] = arguments["user"]
-            
-            # Extract UUID from event_type URI
-            event_type_uri = arguments["event_type"]
-            event_type_uuid = event_type_uri.split("/")[-1]
-            
-            result = await calendly.request(
-                "PUT",
-                f"/event_types/{event_type_uuid}/availability_schedule",
-                json_data=payload
-            )
+            if "availability_setting" in arguments:
+                payload["availability_setting"] = arguments["availability_setting"]
+            result = await calendly.request("PATCH", f"/event_type_availability_schedules/{event_type}", 
+                                           json_data=payload)
         elif name == "list_user_meeting_locations":
-            result = await calendly.request("GET", "/user_meeting_locations", params={"user": arguments["user"]})
+            result = await calendly.request("GET", "/location", params={"user": arguments["user"]})
             
         # SCHEDULED EVENTS
         elif name == "list_events":
