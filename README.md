@@ -109,37 +109,96 @@ response = client.messages.create(
 
 ## Available Operations
 
-### Event Type Management
-- `create_event_type` - **Create new event types programmatically**
-- `update_event_type` - **Update event type settings**
-- `list_event_types` - List all event types
-- `get_event_type` - Get event type details
-- `list_event_type_availability_schedules` - **List availability schedules**
-- `update_event_type_availability_schedule` - **Modify availability**
-- `list_user_meeting_locations` - **Get meeting location options**
+The Calendly MCP Server exposes **45+ tools** mapped one-to-one to Calendly's public API v2. All operations support natural language interaction through AI assistants.
+
+### Users
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `get_current_user` | Get the authenticated user | `GET /users/me` |
+| `get_user` | Get a specific user by UUID | `GET /users/{uuid}` |
+
+### Event Types
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `create_event_type` | Create a new event type | `POST /event_types` |
+| `update_event_type` | Update event type details | `PATCH /event_types/{uuid}` |
+| `list_event_types` | List event types for a user/org | `GET /event_types` |
+| `get_event_type` | Retrieve event type details | `GET /event_types/{uuid}` |
+| `list_event_type_available_times` | List available time slots | `GET /event_type_available_times` |
+| `list_event_type_availability_schedules` | List availability schedules | `GET /event_types/{uuid}/availability_schedules` |
+| `update_event_type_availability_schedule` | Update an availability schedule | `PUT /event_types/{uuid}/availability_schedule` |
+| `list_user_meeting_locations` | List a user's meeting locations | `GET /user_meeting_locations` |
 
 ### Scheduled Events
-- `create_event_invitee` - **Book meetings programmatically** (Scheduling API)
-- `list_events` - List scheduled events
-- `get_event` - Get event details
-- `cancel_event` - Cancel a scheduled event
-- `list_event_invitees` - Get invitee information
 
-### Users & Organization
-- `get_current_user` - Get your user information
-- `get_user` - Get any user's information
-- `list_organization_memberships` - List organization members
-- `create_organization_invitation` - Invite users
-- `delete_organization_membership` - Remove users
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `list_events` | List scheduled events | `GET /scheduled_events` |
+| `get_event` | Retrieve event details | `GET /scheduled_events/{uuid}` |
+| `cancel_event` | Cancel a scheduled event | `POST /scheduled_events/{uuid}/cancellation` |
+| `create_event_invitee` | Create a new booking (Scheduling API) | `POST /invitees` |
+| `list_event_invitees` | List invitees for an event | `GET /scheduled_events/{uuid}/invitees` |
+| `get_event_invitee` | Get invitee details | `GET /scheduled_events/{uuid}/invitees/{invitee_uuid}` |
+
+### Scheduling Links
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `create_scheduling_link` | Create a single-use link | `POST /scheduling_links` |
+
+### Availability
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `list_user_availability_schedules` | List user availability schedules | `GET /user_availability_schedules` |
+| `get_user_availability_schedule` | Get a schedule's details | `GET /user_availability_schedules/{uuid}` |
+| `list_user_busy_times` | List busy times within a range | `GET /user_busy_times` |
+
+### No-Shows
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `create_invitee_no_show` | Mark invitee as no-show | `POST /invitee_no_shows` |
+| `get_invitee_no_show` | Get no-show details | `GET /invitee_no_shows/{uuid}` |
+| `delete_invitee_no_show` | Remove no-show status | `DELETE /invitee_no_shows/{uuid}` |
+
+### Organizations
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `get_organization` | Retrieve org details | `GET /organizations/{uuid}` |
+| `list_organization_memberships` | List organization members | `GET /organization_memberships` |
+| `get_organization_membership` | Get membership details | `GET /organization_memberships/{uuid}` |
+| `delete_organization_membership` | Remove a member | `DELETE /organization_memberships/{uuid}` |
+| `list_organization_invitations` | List pending invitations | `GET /organizations/{uuid}/invitations` |
+| `create_organization_invitation` | Invite a user | `POST /organizations/{uuid}/invitations` |
+| `revoke_organization_invitation` | Revoke an invitation | `DELETE /organizations/{uuid}/invitations/{invitation_uuid}` |
+
+### Routing Forms
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `list_routing_forms` | List routing forms | `GET /routing_forms` |
+| `get_routing_form` | Get form details | `GET /routing_forms/{uuid}` |
+| `list_routing_form_submissions` | List form submissions | `GET /routing_forms/{uuid}/submissions` |
+| `get_routing_form_submission` | Retrieve a submission | `GET /routing_form_submissions/{uuid}` |
 
 ### Webhooks
-- `create_webhook_subscription` - Set up real-time notifications
-- `list_webhook_subscriptions` - List active webhooks
-- `delete_webhook_subscription` - Remove webhooks
 
-### And 30+ more!
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `list_webhook_subscriptions` | List webhook subscriptions | `GET /webhook_subscriptions` |
+| `create_webhook_subscription` | Create a webhook | `POST /webhook_subscriptions` |
+| `get_webhook_subscription` | Retrieve webhook details | `GET /webhook_subscriptions/{uuid}` |
+| `delete_webhook_subscription` | Delete a webhook | `DELETE /webhook_subscriptions/{uuid}` |
 
-See [API_REFERENCE.md](./API_REFERENCE.md) for complete documentation.
+### Data Compliance
+
+| Tool | Description | REST Endpoint |
+|------|-------------|---------------|
+| `delete_invitee_data` | Delete invitee data (GDPR) | `POST /data_compliance/deletion/invitees` |
 
 ## Examples
 
